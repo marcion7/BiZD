@@ -1,0 +1,81 @@
+CREATE TABLE REGIONS AS SELECT * FROM HR.REGIONS;
+CREATE TABLE locations AS SELECT * FROM HR.locations;
+CREATE TABLE jobs AS SELECT * FROM HR.jobs;
+CREATE TABLE job_history AS SELECT * FROM HR.job_history;
+CREATE TABLE job_grades AS SELECT * FROM HR.job_grades;
+CREATE TABLE employees AS SELECT * FROM HR.employees;
+CREATE TABLE departments AS SELECT * FROM HR.departments;
+CREATE TABLE countries AS SELECT * FROM HR.countries;
+
+
+ALTER TABLE REGIONS ADD PRIMARY KEY (region_id);
+ALTER TABLE locations ADD PRIMARY KEY (location_id);
+ALTER TABLE jobs ADD PRIMARY KEY (job_id);
+ALTER TABLE job_history ADD PRIMARY KEY (employee_id, start_date);
+ALTER TABLE employees ADD PRIMARY KEY (employee_id);
+ALTER TABLE departments ADD PRIMARY KEY (department_id);
+ALTER TABLE countries ADD PRIMARY KEY (country_id);
+
+
+ALTER TABLE COUNTRIES ADD FOREIGN KEY (region_id) REFERENCES REGIONS(region_id);
+ALTER TABLE LOCATIONS ADD FOREIGN KEY (country_id) REFERENCES COUNTRIES(country_id);
+ALTER TABLE DEPARTMENTS ADD FOREIGN KEY (location_id) REFERENCES LOCATIONS(location_id);
+ALTER TABLE DEPARTMENTS ADD FOREIGN KEY (manager_id) REFERENCES EMPLOYEES(employee_id);
+ALTER TABLE JOB_HISTORY ADD FOREIGN KEY (department_id) REFERENCES DEPARTMENTS(department_id);
+ALTER TABLE JOB_HISTORY ADD FOREIGN KEY (job_id) REFERENCES JOBS(job_id);
+ALTER TABLE JOB_HISTORY ADD FOREIGN KEY (employee_id) REFERENCES EMPLOYEES(employee_id);
+ALTER TABLE EMPLOYEES ADD FOREIGN KEY (job_id) REFERENCES JOBS(job_id);
+ALTER TABLE EMPLOYEES ADD FOREIGN KEY (department_id) REFERENCES DEPARTMENTS(department_id);
+ALTER TABLE EMPLOYEES ADD FOREIGN KEY (manager_id) REFERENCES EMPLOYEES(employee_id);
+
+-- 1
+SELECT last_name || ' ' || salary as wynagrodzenie from employees where department_id = 20 or department_id = 50 and salary BETWEEN 2000 and 7000 ORDER BY last_name;
+-- 2
+SELECT hire_date, last_name, &podaj_kolumne from employees where manager_id IS NOT NULL and to_char(hire_date, 'YYYY') = '2005' ORDER BY &podaj_kolumne;
+-- 3
+SELECT first_name || ' ' || last_name as name, salary, phone_number from employees where substr(last_name, 3, 3) = 'e' and first_name like '%&czesc_imienia%' ORDER BY 1 DESC, 2 ASC;
+-- 4
+SELECT first_name, last_name, round(months_between(current_date, hire_date)) as liczba_msc_przeprac,
+CASE 
+WHEN round(months_between(current_date, hire_date)) > 0 and round(months_between(current_date, hire_date)) < 150 THEN 0.1 * salary
+WHEN round(months_between(current_date, hire_date)) >= 150 and round(months_between(current_date, hire_date)) < 200 THEN 0.2 * salary
+ELSE 0.3 * salary END as wysokosc_dodatku
+from employees order by liczba_msc_przeprac;
+-- 5
+SELECT employees.job_id, sum(employees.salary) as sum_salary, round(avg(employees.salary)) as avg_salary from employees, jobs where jobs.min_salary > 5000 group by employees.job_id;
+-- 6
+SELECT employees.last_name, employees.department_id, departments.department_name, employees.job_id from employees, departments, locations where locations.city = 'Toronto';
+-- 7
+SELECT E1.FIRST_NAME, E1.LAST_NAME,
+LISTAGG(E2.FIRST_NAME || ' ' || E2.LAST_NAME, ', ') WITHIN GROUP (ORDER BY E2.LAST_NAME) AS Cooworkers
+FROM EMPLOYEES E1
+LEFT JOIN
+    EMPLOYEES E2
+    ON E1.DEPARTMENT_ID = E2.DEPARTMENT_ID
+    AND E1.EMPLOYEE_ID != E2.EMPLOYEE_ID
+WHERE E1.FIRST_NAME = 'Jennifer'
+GROUP BY E1.FIRST_NAME, E1.LAST_NAME;
+-- 8
+SELECT department_name
+FROM departments
+WHERE NOT EXISTS
+(SELECT * FROM employees WHERE departments.department_id = employees.department_id) order by 1;
+-- 10
+SELECT
+Employees.FIRST_NAME,
+Employees.LAST_NAME,
+Employees.JOB_ID,
+Departments.DEPARTMENT_NAME,
+Employees.SALARY,
+Job_grades.GRADE
+FROM Employees, departments, job_grades
+WHERE Employees.SALARY BETWEEN Job_grades.MIN_SALARY AND Job_grades.MAX_SALARY;
+-- 11
+SELECT FIRST_NAME, LAST_NAME, SALARY
+FROM EMPLOYEES
+WHERE SALARY > (SELECT AVG(SALARY) FROM EMPLOYEES)
+ORDER BY SALARY DESC;
+-- 12
+SELECT EMPLOYEES.EMPLOYEE_ID, EMPLOYEES.FIRST_NAME, EMPLOYEES.LAST_NAME
+FROM EMPLOYEES
+WHERE EMPLOYEES.DEPARTMENT_ID IN (SELECT DEPARTMENT_ID FROM EMPLOYEES WHERE LAST_NAME LIKE '%u%');
