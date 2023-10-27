@@ -1,0 +1,197 @@
+-- 1, 2
+DECLARE
+number_max INT;
+department_name departments.department_name%TYPE := 'EDUCATION';
+ 
+BEGIN
+SELECT max(department_id)
+INTO number_max 
+FROM departments;
+INSERT INTO departments VALUES (number_max+10, department_name, NULL, NULL);
+UPDATE departments SET location_id = 1300 WHERE department_id = number_max;
+DBMS_OUTPUT.PUT_LINE(number_max);
+END;
+ 
+-- 3
+CREATE TABLE nowa(pole VARCHAR2(10) NOT NULL);
+ 
+DECLARE
+num nowa.pole%TYPE;
+ 
+BEGIN
+FOR i IN 1..10 
+LOOP
+    IF i = 4 OR i = 6 THEN
+        CONTINUE;
+    ELSE
+        INSERT INTO nowa (pole) VALUES (TO_CHAR(i));
+    END IF;   
+END LOOP;
+END;
+ 
+-- 4
+DECLARE
+pola countries%ROWTYPE;
+ 
+BEGIN
+SELECT *
+INTO pola
+FROM countries
+WHERE country_id = 'CA';
+DBMS_OUTPUT.PUT_LINE(pola.country_name || ' ' || pola.region_id);
+END;
+ 
+-- 5
+DECLARE
+TYPE dep_id IS TABLE OF
+departments%ROWTYPE INDEX BY PLS_INTEGER;
+depart_id dep_id;
+ 
+BEGIN
+FOR i IN 1..10
+LOOP
+    SELECT * INTO depart_id(i) FROM departments 
+    WHERE department_id=i*10;
+END LOOP;
+FOR i IN 1..10
+LOOP
+    DBMS_OUTPUT.PUT_LINE(depart_id(i).department_name);
+END LOOP;
+END;
+
+-- 6
+DECLARE
+TYPE dep_id IS TABLE OF
+departments%ROWTYPE INDEX BY PLS_INTEGER;
+depart_id dep_id;
+BEGIN
+FOR i IN 1..10
+LOOP
+    SELECT * INTO depart_id(i) FROM departments 
+    WHERE department_id=i*10;
+END LOOP;
+FOR i IN 1..10
+LOOP
+    DBMS_OUTPUT.PUT_LINE(depart_id(i).department_id || ' ' || depart_id(i).department_name|| ' ' || depart_id(i).manager_id || ' ' || depart_id(i).location_id);
+END LOOP;
+END;
+ 
+-- 7
+DECLARE
+CURSOR dept_50 IS
+    SELECT last_name, salary FROM employees
+    WHERE department_id = 50;
+ 
+BEGIN
+FOR wiersz in dept_50
+LOOP
+    IF wiersz.salary > 3100 THEN
+        DBMS_OUTPUT.PUT_LINE(wiersz.last_name || ' ' || 'nie dawać podwyżki');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE(wiersz.last_name || ' ' || 'dać podwyżkę');
+    END IF;
+END LOOP;
+END;
+ 
+-- 8
+DECLARE
+CURSOR widelki IS
+    SELECT first_name, last_name, salary FROM employees
+    WHERE salary BETWEEN &wynagrodzenie_min AND &wynagrodzenie_max AND
+    UPPER(first_name) like UPPER('%&czesc_imienia%');
+ 
+BEGIN
+FOR wiersz in widelki
+LOOP
+    DBMS_OUTPUT.PUT_LINE(wiersz.first_name || ' ' || wiersz.last_name);
+END LOOP;
+END;
+
+-- 9
+CREATE OR REPLACE PROCEDURE DodajJob(J_id IN VARCHAR2, J_title IN VARCHAR2) AS
+BEGIN
+  INSERT INTO Jobs (Job_id, Job_title) VALUES (J_id, J_title);
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Dodano wiersz do tabeli Jobs.');
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Błąd podczas dodawania wiersza do tabeli Jobs.');
+END DodajJob;
+/
+ 
+CREATE OR REPLACE PROCEDURE ModyfikujJob(J_id IN VARCHAR2, NewJobTitle IN VARCHAR2) AS
+BEGIN
+  UPDATE Jobs SET Job_title = NewJobTitle WHERE Job_id = J_id;
+  IF SQL%NOTFOUND THEN
+    RAISE_APPLICATION_ERROR(-20001, 'No Jobs updated');
+  END IF;
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Zmodyfikowano Title dla id = ' || j_id);
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Błąd podczas modyfikacji title w tabeli Jobs.');
+END ModyfikujJob;
+/
+ 
+CREATE OR REPLACE PROCEDURE UsunJob(J_id IN VARCHAR2) AS
+BEGIN
+  DELETE FROM Jobs WHERE Job_id = J_id;
+  IF SQL%NOTFOUND THEN
+    RAISE_APPLICATION_ERROR(-20002, 'No Jobs deleted');
+  END IF;
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Usunięto wiersz dla id = ' || j_id);
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Błąd podczas usuwania wiersza z tabeli Jobs.');
+END UsunJob;
+/
+ 
+CREATE OR REPLACE PROCEDURE PobierzZarobkiNazwisko(Emp_id IN NUMBER, Zarobki OUT NUMBER, Nazwisko OUT VARCHAR2) AS
+BEGIN
+  SELECT Salary, Last_Name INTO Zarobki, Nazwisko FROM Employees WHERE Employee_ID = Emp_id;
+  DBMS_OUTPUT.PUT_LINE('Pracownik o id = ' || Emp_id || ' i nazwisku ' || Nazwisko || ' zarabia ' || Zarobki);
+END PobierzZarobkiNazwisko;
+/
+
+declare
+ emp_id number;
+begin
+  select MAX(employee_id) + 1 into emp_id from Employees;
+  If emp_id > 0 then
+    begin
+        execute immediate 'DROP SEQUENCE seq_employee_id';
+    exception when others then
+        null;
+    end;
+    execute immediate 'CREATE SEQUENCE seq_employee_id INCREMENT BY 1 START WITH ' || emp_id || ' NOCYCLE CACHE 20 NOORDER';
+  end if;
+end;
+/
+
+CREATE OR REPLACE PROCEDURE DodajPracownika(imie in VARCHAR2, nazwisko in VARCHAR2, email in VARCHAR2, j_id in VARCHAR2, wynagrodzenie IN NUMBER, data_zatr in DATE) AS
+BEGIN
+  IF wynagrodzenie > 20000 THEN
+    RAISE_APPLICATION_ERROR(-20003, 'Wynagrodzenie nie może być wyższe niż 20000');
+  END IF;
+  INSERT INTO Employees (Employee_ID, First_name, Last_name, Email, Job_id, Salary, Hire_date) VALUES (seq_employee_id.NEXTVAL, imie, nazwisko, email, j_id, wynagrodzenie, data_zatr);
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Dodano pracownika do tabeli Employees.');
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Błąd podczas dodawania pracownika do tabeli Employees.');
+END DodajPracownika;
+/
+
+DECLARE
+    j_id Jobs.Job_id%TYPE := 'IT_TESTER';
+    j_title Jobs.Job_title%TYPE := 'Tester';
+    salary Employees.salary%TYPE;
+    last_name Employees.last_name%TYPE;
+BEGIN
+    --DodajJob(j_id, j_title);
+    --ModyfikujJob(j_id, 'Nowy k');
+    --UsunJob(j_id);
+    --PobierzZarobkiNazwisko(100, salary, last_name);
+    DodajPracownika('Jan', 'Kowalski', 'JKOWALSKI', 'ST_MAN', 17000, '27/11/23');
+END;
