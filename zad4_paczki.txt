@@ -1,0 +1,139 @@
+-- PACZKI
+-- 1
+CREATE OR REPLACE PACKAGE moje_funkcje AS
+
+    FUNCTION PobierzNazwePracy(j_id IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION RoczneZarobki(emp_id IN NUMBER) RETURN NUMBER;
+    FUNCTION PobierzNrWNawias(nr_telefonu IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION ZmienLitery(ciag_znakow IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION PeselWDate(pesel IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION IlePracownikowDepartamentowWKraju(kraj IN VARCHAR2) RETURN VARCHAR2;
+
+END moje_funkcje;
+/
+
+CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
+
+    FUNCTION PobierzNazwePracy (j_id IN VARCHAR2) RETURN VARCHAR2 IS
+        j_title jobs.job_title%TYPE;
+    BEGIN
+    SELECT job_title INTO j_title
+    FROM jobs
+    WHERE job_id = j_id;
+
+    IF j_title IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Praca o podanym ID nie istnieje');
+    END IF;
+
+    RETURN j_title;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Brak danych dla podanego JOB_ID');
+    END PobierzNazwePracy;
+    ----------------------------------------------------------------------------
+    FUNCTION RoczneZarobki (emp_id IN NUMBER) RETURN NUMBER IS
+        emp_roczne_zarobki NUMBER(12, 2);
+        emp_wynagrodzenie NUMBER(12, 2);
+        emp_premia NUMBER(12, 2);
+    BEGIN
+    SELECT salary, NVL(salary * NVL(commission_pct, 0), 0)
+    INTO emp_wynagrodzenie, emp_premia
+    FROM employees
+    WHERE employee_id = emp_id;
+
+    emp_roczne_zarobki := (emp_wynagrodzenie * 12) + emp_premia;
+
+    RETURN emp_roczne_zarobki;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Brak danych dla podanego EMPLOYEE_ID');
+    END RoczneZarobki;
+    ----------------------------------------------------------------------------
+    FUNCTION PobierzNrWNawias (nr_telefonu IN VARCHAR2) RETURN VARCHAR2 IS
+        nr_w_nawiasach VARCHAR2(12);
+    BEGIN
+    IF REGEXP_LIKE(nr_telefonu, '^[0-9]+$') THEN
+        IF LENGTH(nr_telefonu) >= 2 THEN
+            nr_w_nawiasach := '[' || SUBSTR(nr_telefonu, 1, 2) || ']' || SUBSTR(nr_telefonu, 3);
+        END IF;
+    ELSE
+        RETURN NULL;
+    END IF;
+    RETURN nr_w_nawiasach;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN NULL;
+    END PobierzNrWNawias;
+    ----------------------------------------------------------------------------
+    FUNCTION ZmienLitery(ciag_znakow IN VARCHAR2) RETURN VARCHAR2 IS
+        wynik VARCHAR2(100);
+    BEGIN
+    IF LENGTH(ciag_znakow) > 1 THEN
+        wynik := INITCAP(SUBSTR(ciag_znakow, 1, 1)) || LOWER(SUBSTR(ciag_znakow, 2, LENGTH(ciag_znakow) - 2)) || INITCAP(SUBSTR(ciag_znakow, -1, 1));
+    ELSE
+        wynik := UPPER(ciag_znakow);
+    END IF;
+
+    RETURN wynik;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN NULL;
+    END ZmienLitery;
+    ----------------------------------------------------------------------------
+    FUNCTION PeselWDate(pesel IN VARCHAR2) RETURN VARCHAR2 IS
+        data_ur VARCHAR2(10);
+    BEGIN
+    DECLARE
+        rok NUMBER;
+        miesiac NUMBER;
+        dzien NUMBER;
+    BEGIN
+        IF LENGTH(pesel) = 11 AND REGEXP_LIKE(pesel, '^[0-9]+$') THEN
+            rok := TO_NUMBER(SUBSTR(pesel, 1, 2));
+            miesiac := TO_NUMBER(SUBSTR(pesel, 3, 2));
+            dzien := TO_NUMBER(SUBSTR(pesel, 5, 2));
+
+            IF miesiac > 20 THEN
+                miesiac := miesiac - 20;
+                rok := 2000 + rok;
+            ELSE
+                rok := 1900 + rok;
+            END IF;
+
+            data_ur := TO_CHAR(TO_DATE(rok || '-' || LPAD(miesiac, 2, '0') || '-' || LPAD(dzien, 2, '0'), 'YYYY-MM-DD'), 'YYYY-MM-DD');
+        ELSE
+            data_ur := 'Pesel jest za króki';
+        END IF;
+    END;
+
+    RETURN data_ur;
+    END PeselWDate;
+    ----------------------------------------------------------------------------
+    FUNCTION IlePracownikowDepartamentowWKraju(kraj IN VARCHAR2) RETURN VARCHAR2 IS
+        ile_pracow NUMBER;
+        ile_depart NUMBER;
+    BEGIN
+    SELECT COUNT(*) INTO ile_pracow
+    FROM employees e
+    JOIN departments d ON e.department_id = d.department_id
+    JOIN locations l ON d.location_id = l.location_id
+    JOIN countries c ON l.country_id = c.country_id
+    WHERE c.country_name = kraj;
+
+    SELECT COUNT(*) INTO ile_depart
+    FROM departments d
+    JOIN locations l ON d.location_id = l.location_id
+    JOIN countries c ON l.country_id = c.country_id
+    WHERE c.country_name = kraj;
+
+    IF ile_pracow = 0 AND ile_depart = 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Brak danych dla podanego kraju');
+    ELSE
+        RETURN 'W kraju: ' || kraj || ' - Liczba pracowników: ' || TO_CHAR(ile_pracow) || ', Liczba departamentów: ' || TO_CHAR(ile_depart);
+    END IF;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Brak danych dla podanego kraju');
+    END IlePracownikowDepartamentowWKraju;
+END moje_funkcje;
+/
