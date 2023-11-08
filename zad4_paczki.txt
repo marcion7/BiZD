@@ -1,30 +1,30 @@
 -- PACZKI
 -- 1
 CREATE OR REPLACE PACKAGE moje_funkcje AS
-
+ 
     FUNCTION PobierzNazwePracy(j_id IN VARCHAR2) RETURN VARCHAR2;
     FUNCTION RoczneZarobki(emp_id IN NUMBER) RETURN NUMBER;
     FUNCTION PobierzNrWNawias(nr_telefonu IN VARCHAR2) RETURN VARCHAR2;
     FUNCTION ZmienLitery(ciag_znakow IN VARCHAR2) RETURN VARCHAR2;
     FUNCTION PeselWDate(pesel IN VARCHAR2) RETURN VARCHAR2;
     FUNCTION IlePracownikowDepartamentowWKraju(kraj IN VARCHAR2) RETURN VARCHAR2;
-
+ 
 END moje_funkcje;
 /
-
+ 
 CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
-
+ 
     FUNCTION PobierzNazwePracy (j_id IN VARCHAR2) RETURN VARCHAR2 IS
         j_title jobs.job_title%TYPE;
     BEGIN
     SELECT job_title INTO j_title
     FROM jobs
     WHERE job_id = j_id;
-
+ 
     IF j_title IS NULL THEN
         RAISE_APPLICATION_ERROR(-20001, 'Praca o podanym ID nie istnieje');
     END IF;
-
+ 
     RETURN j_title;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
@@ -40,9 +40,9 @@ CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
     INTO emp_wynagrodzenie, emp_premia
     FROM employees
     WHERE employee_id = emp_id;
-
+ 
     emp_roczne_zarobki := (emp_wynagrodzenie * 12) + emp_premia;
-
+ 
     RETURN emp_roczne_zarobki;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
@@ -73,7 +73,7 @@ CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
     ELSE
         wynik := UPPER(ciag_znakow);
     END IF;
-
+ 
     RETURN wynik;
     EXCEPTION
         WHEN OTHERS THEN
@@ -92,20 +92,20 @@ CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
             rok := TO_NUMBER(SUBSTR(pesel, 1, 2));
             miesiac := TO_NUMBER(SUBSTR(pesel, 3, 2));
             dzien := TO_NUMBER(SUBSTR(pesel, 5, 2));
-
+ 
             IF miesiac > 20 THEN
                 miesiac := miesiac - 20;
                 rok := 2000 + rok;
             ELSE
                 rok := 1900 + rok;
             END IF;
-
+ 
             data_ur := TO_CHAR(TO_DATE(rok || '-' || LPAD(miesiac, 2, '0') || '-' || LPAD(dzien, 2, '0'), 'YYYY-MM-DD'), 'YYYY-MM-DD');
         ELSE
             data_ur := 'Pesel jest za króki';
         END IF;
     END;
-
+ 
     RETURN data_ur;
     END PeselWDate;
     ----------------------------------------------------------------------------
@@ -119,13 +119,13 @@ CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
     JOIN locations l ON d.location_id = l.location_id
     JOIN countries c ON l.country_id = c.country_id
     WHERE c.country_name = kraj;
-
+ 
     SELECT COUNT(*) INTO ile_depart
     FROM departments d
     JOIN locations l ON d.location_id = l.location_id
     JOIN countries c ON l.country_id = c.country_id
     WHERE c.country_name = kraj;
-
+ 
     IF ile_pracow = 0 AND ile_depart = 0 THEN
         RAISE_APPLICATION_ERROR(-20001, 'Brak danych dla podanego kraju');
     ELSE
@@ -137,3 +137,110 @@ CREATE OR REPLACE PACKAGE BODY moje_funkcje AS
     END IlePracownikowDepartamentowWKraju;
 END moje_funkcje;
 /
+ 
+-- 2
+CREATE OR REPLACE PACKAGE regions_CRUD AS
+ 
+    PROCEDURE WypiszNazweRegionu(r_id IN NUMBER);
+    FUNCTION PobierzNazweRegionu(r_id IN NUMBER) RETURN VARCHAR2;
+    FUNCTION PobierzIdRegionu(r_name IN VARCHAR2) RETURN NUMBER;
+    PROCEDURE DodajRegion(r_id IN NUMBER, r_name in VARCHAR2);
+    PROCEDURE ModyfikujRegion(r_id IN NUMBER, new_r_name in VARCHAR2);
+    PROCEDURE UsunRegion(r_id IN NUMBER);
+ 
+END regions_CRUD;
+/
+ 
+CREATE OR REPLACE PACKAGE BODY regions_CRUD AS
+ 
+    PROCEDURE WypiszNazweRegionu(r_id IN NUMBER) IS
+        r_name regions.region_name%TYPE;
+    BEGIN
+    SELECT region_name INTO r_name
+    FROM regions
+    WHERE region_id = r_id;
+ 
+    IF r_name IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Region o podanym ID nie istnieje');
+    END IF;
+ 
+    DBMS_OUTPUT.PUT_LINE('Nazwa regionu dla id: ' || r_id || ' to: ' || r_name);
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Brak danych dla podanego REGION_ID');
+    END WypiszNazweRegionu;
+    ----------------------------------------------------------------------------
+    FUNCTION PobierzNazweRegionu(r_id IN NUMBER) RETURN VARCHAR2 IS
+        r_name regions.region_name%TYPE;
+    BEGIN
+    SELECT region_name INTO r_name
+    FROM regions
+    WHERE region_id = r_id;
+ 
+    IF r_name IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Region o podanym ID nie istnieje');
+    END IF;
+ 
+    RETURN r_name;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Brak danych dla podanego REGION_ID');
+    END PobierzNazweRegionu;
+    ----------------------------------------------------------------------------
+    FUNCTION PobierzIdRegionu(r_name IN VARCHAR2) RETURN NUMBER IS
+        r_id regions.region_id%TYPE;
+    BEGIN
+    SELECT region_id INTO r_id
+    FROM regions
+    WHERE region_name = r_name;
+ 
+    IF r_id IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Region o podanej nazwie nie istnieje');
+    END IF;
+ 
+    RETURN r_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Brak danych dla podanego REGION_NAME');
+    END PobierzIdRegionu;
+    ----------------------------------------------------------------------------
+    PROCEDURE DodajRegion(r_id IN NUMBER, r_name in VARCHAR2) AS
+    BEGIN
+      INSERT INTO Regions (Region_id, Region_name) VALUES (r_id, r_name);
+      COMMIT;
+      DBMS_OUTPUT.PUT_LINE('Dodano wiersz do tabeli Regions.');
+    EXCEPTION
+      WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Błąd podczas dodawania wiersza do tabeli Regions.');
+    END DodajRegion;
+    ----------------------------------------------------------------------------
+    PROCEDURE ModyfikujRegion(r_id IN NUMBER, new_r_name in VARCHAR2) AS
+    BEGIN
+      UPDATE Regions SET Region_name = new_r_name WHERE Region_id = r_id;
+      COMMIT;
+      DBMS_OUTPUT.PUT_LINE('Zmodyfikowano REGION_NAME dla ID = ' || r_id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Błąd podczas modyfikowania REGION_NAME w tabeli Regions.');
+    END ModyfikujRegion;
+    ----------------------------------------------------------------------------
+    PROCEDURE UsunRegion(r_id IN NUMBER) AS
+    BEGIN
+      DELETE FROM Regions WHERE Region_id = r_id;
+      COMMIT;
+      DBMS_OUTPUT.PUT_LINE('Usunięto wiersz dla ID = ' || r_id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Błąd podczas usuwania wiersza do tabeli Regions.');
+    END UsunRegion;
+END regions_CRUD;
+/
+ 
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Nazwa pracy: ' || moje_funkcje.PobierzNazwePracy('AD_PRES'));
+  regions_CRUD.WypiszNazweRegionu(1);
+  regions_CRUD.DodajRegion(5, 'Antarctika');
+  regions_CRUD.ModyfikujRegion(5, 'Antarctica');
+  regions_CRUD.WypiszNazweRegionu(5);
+  regions_CRUD.UsunRegion(5);
+END;
